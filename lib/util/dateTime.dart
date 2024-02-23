@@ -34,6 +34,27 @@ class GDateTime {
     }
   }
 
+  static String getDateYM(String dateString) {
+    // 使用 yyyy-M-d 格式解析日期字符串
+    final DateFormat parser1 = DateFormat('yyyy-MM');
+    final DateFormat parser2 = DateFormat('yyyy-M');
+
+    try {
+      // 尝试解析为 yyyy-M 格式
+      var now = parser1.parse(dateString);
+      return parser1.format(now);
+    } catch (e) {
+      // 如果解析失败，尝试解析为 yyyy-MM 格式
+      try {
+        var now = parser2.parse(dateString);
+        return parser2.format(now);
+      } catch (e) {
+        // 如果两种格式都无法解析，返回 false
+        return "";
+      }
+    }
+  }
+
   static String getDateYMDHMS(String dateString) {
     // 使用 yyyy-M-d 格式解析日期字符串
     final DateFormat parser1 = DateFormat('yyyy-MM-dd HH:mm:ss');

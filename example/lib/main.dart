@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'package:grain_box/grain_box.dart';
+import 'package:grain_box/widget/card/default_card.dart';
 
 void main() {
   runApp(const MyApp());
