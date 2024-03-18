@@ -1,76 +1,102 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 
-class XDio {
-  static Dio dio = Dio(); // With default `Options`.
+class DioHttp {
+  static DioHttp? _instance;
+  static final dio = Dio(); // With default `Options`.
 
-  void configureDio(String baseUrl, String tokenKey) {
-    dio.options = BaseOptions(
-      baseUrl: baseUrl, //"http://127.0.0.1:8080/api/v1",
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 3),
-    );
+  DioHttp._internal();
 
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (RequestOptions options, RequestInterceptorHandler handler) {
-          // 如果你想完成请求并返回一些自定义数据，你可以使用 `handler.resolve(response)`。
-          // 如果你想终止请求并触发一个错误，你可以使用 `handler.reject(error)`。
-          return handler.next(options);
-        },
-        onResponse: (Response response, ResponseInterceptorHandler handler) {
-          // 如果你想终止请求并触发一个错误，你可以使用 `handler.reject(error)`。
-          var newToken = response.headers.value(tokenKey);
-          if (newToken != "") {
-            print(newToken);
-          }
-          return handler.next(response);
-        },
-        onError: (DioException e, ErrorInterceptorHandler handler) {
-          // 如果你想完成请求并返回一些自定义数据，你可以使用 `handler.resolve(response)`。
-          // 处理异常
-          final response = e.response;
-          if (response != null) {
-            print(response.data);
-            print(response.headers);
-            print(response.requestOptions);
-          } else {
-            print(e.requestOptions);
-            print(e.message);
-          }
-          return handler.next(e);
-        },
-      ),
-    );
-  }
-
-  static setOptions(String baseUrl) {
-    dio.options = BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 3),
-    );
-  }
-
-  static setToken(String key, String token) {
-    dio.options.headers[key] = token;
-  }
-
-  static Future<dynamic> get(uri) async {
-    // 发送请求
-    Response response = await dio.get(uri);
-    // 处理响应
-    print(response.data.data);
-    return response.data;
-  }
-
-  static Future<dynamic> post(String path, {Map<String, dynamic>? data}) async {
-    final response = await dio.post(
-      path,
-      data: data,
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Response status code is ${response.statusCode}');
+  factory DioHttp() {
+    if (_instance == null) {
+      interceptors();
+      initAdapter();
     }
-    return response.data;
+    _instance ??= DioHttp._internal();
+    return _instance!;
+  }
+
+  static void configureDio(baseUrl, {connectTimeout = 5, receiveTimeout = 3}) {
+    // Update default configs.
+    dio.options.baseUrl = baseUrl;
+    dio.options.connectTimeout = Duration(seconds: connectTimeout);
+    dio.options.receiveTimeout = Duration(seconds: receiveTimeout);
+  }
+
+  static void interceptors() {
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // 处理请求前的逻辑
+        return handler.next(options);
+      },
+      onResponse: (response, handler) async {
+        // 处理响应后的逻辑
+        return handler.next(response);
+      },
+      onError: (DioException e, handler) async {
+        // 处理错误
+        final response = e.response;
+        if (response != null) {
+          // 服务器响应了，但状态码不是2xx
+          print('Error response from server: ${response.statusCode}');
+          print('Error message from server: ${response.data}');
+        }
+        // 可以选择抛出异常或者返回错误信息
+        return handler.next(e);
+      },
+    ));
+  }
+
+  static void initAdapter() {
+    dio.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () {
+        final client = HttpClient();
+        client.findProxy = (uri) {
+          // 将请求代理至 localhost:8888。
+          // 请注意，代理会在你正在运行应用的设备上生效，而不是在宿主平台生效。
+          return 'localhost:8888';
+        };
+        return client;
+      },
+    );
+  }
+
+  Future<Response<dynamic>> get(String path,
+      {Map<String, dynamic>? queryParameters}) async {
+    try {
+      return await dio.get(path, queryParameters: queryParameters);
+    } on DioException catch (e) {
+      throw Exception('GET request failed: ${e.message}');
+    }
+  }
+
+  Future<Response<dynamic>> post(String path,
+      {data, Map<String, String>? headers}) async {
+    try {
+      return await dio.post(path,
+          data: data, options: Options(headers: headers));
+    } on DioException catch (e) {
+      throw Exception('POST request failed: ${e.message}');
+    }
+  }
+
+  Future<Response<dynamic>> delete(String path,
+      {Map<String, dynamic>? queryParameters}) async {
+    try {
+      return await dio.delete(path, queryParameters: queryParameters);
+    } on DioException catch (e) {
+      throw Exception('DELETE request failed: ${e.message}');
+    }
+  }
+
+  Future<Response<dynamic>> put(String path,
+      {data, Map<String, String>? headers}) async {
+    try {
+      return await dio.put(path,
+          data: data, options: Options(headers: headers));
+    } on DioException catch (e) {
+      throw Exception('PUT request failed: ${e.message}');
+    }
   }
 }
